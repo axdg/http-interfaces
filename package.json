@@ -1,0 +1,37 @@
+{
+  "name": "gcloud-functions",
+  "version": "0.0.1",
+  "description": "a collection of cloud functions",
+  "main": "lib/index.js",
+  "scripts": {
+    "build:transpile": "babel src -d lib",
+    "prepare": "npm run build:transpile",
+    "test:lint": "eslint src test",
+    "test:es": "ava --verbose",
+    "test": "npm run test:es && npm run test:lint"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/axdg/gcloud-functions.git"
+  },
+  "author": "axdg <axdg@dfant.asia>",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/axdg/gcloud-functions/issues"
+  },
+  "homepage": "https://github.com/axdg/gcloud-functions#readme",
+  "dependencies": {
+    "puppeteer": "^0.10.2"
+  },
+  "devDependencies": {
+    "ava": "^0.22.0",
+    "babel-cli": "^6.26.0",
+    "babel-eslint": "^6.1.2",
+    "babel-plugin-transform-async-to-generator": "^6.24.1",
+    "babel-preset-minify": "^0.2.0",
+    "babel-register": "^6.26.0",
+    "eslint": "^3.0.1",
+    "eslint-config-airbnb-base": "^3.0.1",
+    "eslint-plugin-import": "^1.10.2"
+  }
+}
