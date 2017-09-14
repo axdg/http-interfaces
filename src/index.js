@@ -1,186 +1,116 @@
-const { STATUS_CODES } = require('http')
-const puppeteer = require('puppeteer')
+const { Readable, Writable } = require('stream')
+const methods = require('http').METHODS.reduce((p, c) => (p[c] = c) && p, {})
 
 /**
- * A utility to create an async handler.
+ * Mimics an incoming message - for testing.
  *
- * NOTE: The functions here are capable of serving either pretty JSON or
- * files (as a Node `Buffer`), so these are the only situations that we
- * deal with in this handler creator.
+ * Returns a mock `http(s || \2).IncomingMessage`. The value passed
+ * as `content` will be the body... the properties `.method` and
+ * `.url` can be used to get and set the method and url respectively.
  *
- * @param {Function}
- * @param {Request}
- * @param {Response}
- * @returns {Function}
+ * @param {String|Buffer}
+ * @returns {Object}
  */
-const createHandler = function (fn) {
-  return async function (req, res) {
-    try {
-      const data = await fn(req, res)
+module.exports.createIncomingMessage = function (content = Buffer.from('')) {
+  const buf = Buffer.from(content)
+  const length  = buf.length
+  let method = methods.GET
+  let url = ''
+  let position = 0
 
-      console.log(data)
+  const readable = new Readable({
+    read() {
+      if (position === -1) return this.push(null)
 
-      // We're retusrning a file of some sort... set headers etc.
-      if (Buffer.isBuffer(data)) {
-        if (!res.getHeader('Content-Type')) res.setHeader('Content-Type', 'application/octet-stream')
-        res.setHeader('Content-Length', data.length)
-        res.writeHead(200, STATUS_CODES[200], { 'Content-Length': data.length })
-        return res.end(data)
-      }
-
-      // Returning a JSON response... set encoding etc.
-      if (typeof data === 'object') {
-        console.log(true)
-        let str
-        // Set encoding etc...
-        try {
-          str = JSON.stringify(data, null, 2)
-        } catch (err) {
-          throw createError(400, 'I can\'t parse that JSON :(')
-        }
-
-        res.writeHead(200, STATUS_CODES[200], {
-          'Content-Type': 'application/json',
-          'Contnet-Length': Buffer.byteLength(str)
-        })
-
-        return res.end(str)
-      }
-
-      return undefined
-    } catch (err) {
-      const { statusCode, message } = err
-      const statusText = STATUS_CODES[statusCode]
-
-      const str = JSON.stringify({ statusCode, statusText, message }, null, 2)
-
-      // Send the error... set the status code \_(ツ)_/¯
-      res.writeHead(statusCode, statusText, {
-        'Content-Type': 'application/json',
-        'Contnet-Length': Buffer.byteLength(str)
-      })
-
-      return res.end(str)
+      const start = position
+      position += 16
+      const end = position <= len ? position : (position = -1) && len
+      const chunk = Buffer.from(buf.slice(start, end))
+      return this.push(chunk)
     }
-  }
-}
+  })
 
-exports.createHandler = createHandler
+  Object.defineProperty(readable, 'method', {
+    get() { return method },
+    set(_method) { method = _method }
+  })
 
-/**
- * It helps to be able to standardise around some sort of error object.
- *
- * @param {Number}
- * @param {String}
- * @returns {Error}
- */
-const createError = function (statusCode, message) {
-  const err = new Error(message)
-  err.statusCode = statusCode
-  return err
+  Object.defineProperty(readable, 'url', {
+    get() { return url },
+    set(_url) { url = _url }
+  })
+
+  return readable
 }
 
 /**
- * Buffers the body of a post message.
+ * Mimics a server response - you know... for the kids.
  *
- * TODO: Can buffer be called multiple times? It shouldn't
- * be (ideally), but would it work if it was?
+ * It returns a mock `http(s || \2).ServerResponse` instance. That
+ * also implements much of the HTML5 `fetch` `Response` interface.
+ * Calling `serverResponse.buffer` returns a promise that resolves
+ * when the response is fully written... the properties `length` (
+ * the internal buffer length), `.status`, `statusText` and
+ * `.headers` can be used to fetch values written to the response.
  *
- * @param {Request}
- * @param {Number}
- * @param {String}
- * @returns {Promise}
+ * So this basically it's a monstrosity that implements both the
+ * `ServerResponse` and HTML5 `fetch` `Response` interface.
+ *
+ * @returns {Object}
  */
-const buffer = function (readable, limit = 100000/** default is 100kb */) {
-  const chunks = []
+module.exports.createServerResponse = function () {
   let len = 0
+  let statusCode
+  let statusText
+  const chunks = []
+  const headers = {}
 
-  return new Promise(function (resolve, reject) {
-    readable.on('data', function (chunk) {
+  const writable = new Writable({
+    write(chunk, encoding, callback) {
       len += chunk.length
+      chunks.push(chunk)
+      callback && callback()
+    }
+  })
 
-      /**
-       * Don't allow the body limit to be exceeded.
-       *
-       * TODO: Make the string containing byte length prettier.
-       */
-      if (len > limit) return reject(createError(400, `Body limit of ${limit} bytes exceeded`))
-
-      return chunks.push(chunk)
-    })
-
-    readable.on('error', function () {
-      return reject(createError(400, '¯\_(ツ)_/¯'))
-    })
-
-    readble.on('end', async function () {
-      let data
-
-      try {
-        data = JSON.parse(Buffer.concat(chunks, len).toString('utf8'))
-      } catch (err) {
-        return reject(createError(400, 'JSON parsing error :('))
-      }
-
-      return resolve(data)
+  const p = new Promise(function (resolve) {
+    writable.on('finish', function () {
+      resolve(Buffer.concat(chunks, len))
     })
   })
+
+  writable.writeHead = function (statusCode, statusMessage, _headers) {
+    statusCode = statusCode,
+    statusMessage = statusMessage,
+    Object.assign(headers, _headers)
+  }
+
+  writable.setHeader = function (name, value) {
+    headers[name] = value
+  }
+
+  writable.getHeader = function (name) {
+    return headers[name]
+  }
+
+  Object.defineProperty(writable, 'length', { get() { return len } })
+  Object.defineProperty(writable, 'status', { get() { return statusCode } })
+  Object.defineProperty(writable, 'statusText', { get() { return statusText } })
+  Object.defineProperty(writable, 'headers', { get() { return Object.assign({}, headers)} })
+
+  writable.buffer = function () {
+    return p
+  }
+
+  writable.json = async function () {
+    const buf = await writable.buffer()
+    return JSON.parse(buf)
+  }
+
+  writable.text = async function () {
+    const buf = await writable.buffer()
+    return buf.toString('utf8')
+  }
+
+  return writable
 }
-
-exports.buffer = buffer
-
-/**
- * Render a `.pdf` file... needs to accept options.
- *
- * @param {Request}
- * @param {Response}
- */
-exports['render-portable-document'] = createHandler(async function (req, res) {})
-
-/**
- * Capture a screenshot of a web page.
- *
- * @param {Request}
- * @param {Response}
- */
-exports['render-screenshot'] = async function (req, res) {}
-
-/**
- * Render an HTML5 document.
- *
- * @param {Request}
- * @param {Response}
- */
-exports['render-markup'] = async function (req, res) {}
-
-/**
- * Parse an HTML5 document.
- *
- * @param {Request}
- * @param {Response}
- */
-exports['parse-markup'] = async function (req, res) {}
-
-/**
- * Parse a bitmap using the canvas API.
- *
- * @param {Request}
- * @param {Response}
- */
-exports['parse-bitmap-image'] = async function (req, res) {}
-
-/**
- * Render a GH stats as a markup document ;)
- *
- * @param {Request}
- * @param {Response}
- */
-exports['render-gh-stats-markup'] = async function (req, res) {}
-
-/**
- * Render a GH stats as a printable document ;)
- *
- * @param {Request}
- * @param {Response}
- */
-exports['render-gh-stats-document'] = async function (req, res) {}
