@@ -1,5 +1,10 @@
 const { Readable, Writable } = require('stream')
-const methods = require('http').METHODS.reduce((p, c) => (p[c] = c) && p, {})
+const { METHODS, STATUS_CODES } = require('http')
+
+const methods = METHODS.reduce((p, c) => (p[c] = c) && p, {})
+
+module.exports.METHODS = methods
+module.exports.STATUS_CODES = STATUS_CODES
 
 /**
  * Mimics an incoming message - for testing.
@@ -13,7 +18,7 @@ const methods = require('http').METHODS.reduce((p, c) => (p[c] = c) && p, {})
  */
 module.exports.createIncomingMessage = function (content = Buffer.from('')) {
   const buf = Buffer.from(content)
-  const length  = buf.length
+  const len  = buf.length
   let method = methods.GET
   let url = ''
   let position = 0
@@ -29,6 +34,26 @@ module.exports.createIncomingMessage = function (content = Buffer.from('')) {
       return this.push(chunk)
     }
   })
+
+  const p = new Promise(function (resolve, reject) {
+    let len = 0
+    const chunks = []
+
+    readable.on('data', function (chunk) {
+      len += chunk.length
+      chunks.push(chunk)
+    })
+
+    readable.on('error', reject)
+
+    readable.on('end', function () {
+      resolve(Buffer.concat(chunks, len))
+    })
+  })
+
+  readable.buffer = function () {
+    return p
+  }
 
   Object.defineProperty(readable, 'method', {
     get() { return method },
@@ -79,9 +104,10 @@ module.exports.createServerResponse = function () {
     })
   })
 
-  writable.writeHead = function (statusCode, statusMessage, _headers) {
-    statusCode = statusCode,
-    statusMessage = statusMessage,
+  // TODO: This doesn't properly implement the writeHead method... arguments are optional.
+  writable.writeHead = function (_statusCode, _statusMessage, _headers) {
+    statusCode = _statusCode,
+    statusMessage = _statusMessage,
     Object.assign(headers, _headers)
   }
 
@@ -95,21 +121,11 @@ module.exports.createServerResponse = function () {
 
   Object.defineProperty(writable, 'length', { get() { return len } })
   Object.defineProperty(writable, 'status', { get() { return statusCode } })
-  Object.defineProperty(writable, 'statusText', { get() { return statusText } })
+  Object.defineProperty(writable, 'statusText', { get() { return statusMessage } })
   Object.defineProperty(writable, 'headers', { get() { return Object.assign({}, headers)} })
 
   writable.buffer = function () {
     return p
-  }
-
-  writable.json = async function () {
-    const buf = await writable.buffer()
-    return JSON.parse(buf)
-  }
-
-  writable.text = async function () {
-    const buf = await writable.buffer()
-    return buf.toString('utf8')
   }
 
   return writable
