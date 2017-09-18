@@ -1,6 +1,6 @@
 # http-interfaces
 
-> Note.js core http(s || \2) mocks.
+[![CircleCI](https://circleci.com/gh/axdg/http-interfaces.svg?style=shield)](https://circleci.com/gh/axdg/http-interfaces) [![Build Status](https://semaphoreci.com/api/v1/axdg/http-interfaces/branches/master/shields_badge.svg)](https://semaphoreci.com/axdg/http-interfaces)
 
 ## Usage
 
@@ -12,11 +12,21 @@ This module creates mock `incomingMessage` and `serverResponse` interfaces - alt
 
 **WIP: *documentation coming***
 
-**createServerResponse()**
+### createServerResponse()
 
 Returns a `serverResponse` (`object` && `stream.Writable`) - a `ServerResponse`-ish and HTML5 `Response`-ish instance.
 
-**createIncomingMessage(*/fetch-ish parameters/*)**
+**serverResponse**
+
+- **write**
+- **writeHead**
+- **end** *etc...*
+
+### createIncomingMessage(*/fetch-ish parameters/*)
+
+**incomingMessage**
+
+- **read** *etc...*
 
 Returns an `incomingMessage` (`object` && `stream.Readable`) a `IncomingMessage`-ish and HTML5 `Response`-ish instance)**
 

@@ -18,7 +18,7 @@ module.exports.STATUS_CODES = STATUS_CODES
  */
 module.exports.createIncomingMessage = function (content = Buffer.from('')) {
   const buf = Buffer.from(content)
-  const len  = buf.length
+  const len = buf.length
   let method = methods.GET
   let url = ''
   let position = 0
@@ -32,11 +32,11 @@ module.exports.createIncomingMessage = function (content = Buffer.from('')) {
       const end = position <= len ? position : (position = -1) && len
       const chunk = Buffer.from(buf.slice(start, end))
       return this.push(chunk)
-    }
+    },
   })
 
   const p = new Promise(function (resolve, reject) {
-    let len = 0
+    let len = 0 // eslint-disable-line no-shadow
     const chunks = []
 
     readable.on('data', function (chunk) {
@@ -57,12 +57,12 @@ module.exports.createIncomingMessage = function (content = Buffer.from('')) {
 
   Object.defineProperty(readable, 'method', {
     get() { return method },
-    set(_method) { method = _method }
+    set(_method) { method = _method },
   })
 
   Object.defineProperty(readable, 'url', {
     get() { return url },
-    set(_url) { url = _url }
+    set(_url) { url = _url },
   })
 
   return readable
@@ -86,7 +86,7 @@ module.exports.createIncomingMessage = function (content = Buffer.from('')) {
 module.exports.createServerResponse = function () {
   let len = 0
   let statusCode
-  let statusText
+  let statusMessage
   const chunks = []
   const headers = {}
 
@@ -95,7 +95,7 @@ module.exports.createServerResponse = function () {
       len += chunk.length
       chunks.push(chunk)
       callback && callback()
-    }
+    },
   })
 
   const p = new Promise(function (resolve) {
@@ -106,8 +106,8 @@ module.exports.createServerResponse = function () {
 
   // TODO: This doesn't properly implement the writeHead method... arguments are optional.
   writable.writeHead = function (_statusCode, _statusMessage, _headers) {
-    statusCode = _statusCode,
-    statusMessage = _statusMessage,
+    statusCode = _statusCode
+    statusMessage = _statusMessage
     Object.assign(headers, _headers)
   }
 
@@ -122,7 +122,7 @@ module.exports.createServerResponse = function () {
   Object.defineProperty(writable, 'length', { get() { return len } })
   Object.defineProperty(writable, 'status', { get() { return statusCode } })
   Object.defineProperty(writable, 'statusText', { get() { return statusMessage } })
-  Object.defineProperty(writable, 'headers', { get() { return Object.assign({}, headers)} })
+  Object.defineProperty(writable, 'headers', { get() { return Object.assign({}, headers) } })
 
   writable.buffer = function () {
     return p

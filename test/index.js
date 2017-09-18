@@ -41,8 +41,8 @@ test('`serverResponse` interface is correct / consistent', async function (t) {
   })
 
  // Asserting that it implements the `end` and `write` methods
- serverResponse.write(CONTENTS)
- serverResponse.end()
+  serverResponse.write(CONTENTS)
+  serverResponse.end()
 
   // Assert that this is a writable stream.
   t.true(serverResponse instanceof Writable)
