@@ -3,6 +3,7 @@
   "version": "0.0.1",
   "description": "core http(s || \\2) request and response test mocks",
   "main": "src/index.js",
+  "repository": "https://github.com/axdg/http-interfaces",
   "scripts": {
     "test:lint": "eslint src test",
     "test:es": "ava --verbose",
