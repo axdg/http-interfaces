@@ -9,14 +9,12 @@ module.exports.STATUS_CODES = STATUS_CODES
 /**
  * Mimics an incoming message - for testing.
  *
- * Returns a mock `IncomingMessage`. The value passed
- * as `content` will be the body... the properties `.method` and
- * `.url` can be used to get and set the method and url respectively.
+ * TODO: Allow for passing an object like `fetch` does.
  *
  * @param {String|Buffer}
  * @returns {Object}
  */
-module.exports.createIncomingMessage = function (content = Buffer.from('')) {
+module.exports.createIncomingMessage = function (content = '') {
   const buf = Buffer.from(content)
   const len = buf.length
   let method = methods.GET
@@ -70,16 +68,6 @@ module.exports.createIncomingMessage = function (content = Buffer.from('')) {
 
 /**
  * Mimics a server response - you know... for the kids.
- *
- * It returns a mock `http(s || \2).ServerResponse` instance. That
- * also implements much of the HTML5 `fetch` `Response` interface.
- * Calling `serverResponse.buffer` returns a promise that resolves
- * when the response is fully written... the properties `length` (
- * the internal buffer length), `.status`, `statusText` and
- * `.headers` can be used to fetch values written to the response.
- *
- * So this basically it's a monstrosity that implements both the
- * `ServerResponse` and HTML5 `fetch` `Response` interface.
  *
  * @returns {Object}
  */
