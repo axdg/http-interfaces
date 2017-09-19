@@ -9,7 +9,7 @@ module.exports.STATUS_CODES = STATUS_CODES
 /**
  * Mimics an incoming message - for testing.
  *
- * Returns a mock `http(s || \2).IncomingMessage`. The value passed
+ * Returns a mock `IncomingMessage`. The value passed
  * as `content` will be the body... the properties `.method` and
  * `.url` can be used to get and set the method and url respectively.
  *
@@ -104,12 +104,36 @@ module.exports.createServerResponse = function () {
     })
   })
 
-  // TODO: This doesn't properly implement the writeHead method... arguments are optional.
-  writable.writeHead = function (_statusCode, _statusMessage, _headers) {
+  /**
+   * Node.js core http || https || http\2 `ServerResponse` class methods.
+   *
+   * TODO: There are a tonne of methods missing... they can be added as
+   * needed.
+   */
+  writable.writeHead = function (_statusCode, _statusMessage, _headers = {}) {
     statusCode = _statusCode
-    statusMessage = _statusMessage
+    if (typeof _statusMessage === 'object') {
+      _headers = _statusMessage
+      _statusMessage = undefined
+    }
+
+    if (!statusMessage && !_statusMessage) _statusMessage = STATUS_CODES[_statusCode]
+    if (_statusMessage) statusMessage = _statusMessage
     Object.assign(headers, _headers)
   }
+
+  Object.defineProperty(writable, 'statusCode', {
+    set(value) {
+      statusCode = value
+      if (!statusMessage) statusMessage = STATUS_CODES[statusCode]
+    },
+  })
+
+  Object.defineProperty(writable, 'statusMessage', {
+    set(value) {
+      statusMessage = value
+    },
+  })
 
   writable.setHeader = function (name, value) {
     headers[name] = value
@@ -119,14 +143,22 @@ module.exports.createServerResponse = function () {
     return headers[name]
   }
 
-  Object.defineProperty(writable, 'length', { get() { return len } })
+  /**
+   * The HTML5 Response interface - this also implements only a
+   * subset of methods.
+   */
+  Object.defineProperty(writable, 'ok', { get() { return statusCode >= 200 && statusCode < 300 } })
   Object.defineProperty(writable, 'status', { get() { return statusCode } })
   Object.defineProperty(writable, 'statusText', { get() { return statusMessage } })
   Object.defineProperty(writable, 'headers', { get() { return Object.assign({}, headers) } })
 
+  // NOTE: This should be used in place of `blob` to buffer up the raw body.
   writable.buffer = function () {
     return p
   }
+
+  // NOTE: Not standard - an added helper.
+  Object.defineProperty(writable, 'length', { get() { return len } })
 
   return writable
 }
